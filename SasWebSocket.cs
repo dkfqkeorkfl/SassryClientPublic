@@ -1,9 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using UniRx;
-
 using System.Linq;
+using Sas;
+using UniRx;
+using UnityEngine;
 
 namespace Sas
 {
@@ -11,172 +11,112 @@ namespace Sas
 	{
 		public class ClientSocket
 		{
-			
-			WebSocket mSocket = null;
+			WebSocket socket { get; set; }
 
-			System.IDisposable mExcuter = null;
+			public bool is_conn { get { return connection != null; } }
+
 			PROTOCOL mLastSend = new PROTOCOL (), mLastRecv = new PROTOCOL ();
 
-			public event System.Action<PROTOCOL> on_recv;
-			public event System.Action<bool> on_connect;
-			public event System.Action on_close;
+			System.IDisposable connection { set; get; }
 
-			public string error { get; private set; }
-
-
-			public bool is_connecting {
-				get {
-					return mExcuter != null && mSocket == null;
-				}
-			}
-
-			public bool is_connected {
-				get {
-					return mSocket != null; 
-				}
-			}
-
-			public bool is_disconnected {
-				get {
-					return mExcuter == null && mSocket == null;  
-				}
-			}
+			UniRx.Subject<PROTOCOL> packethole { get; set; }
 
 			public int handle {
 				get {
-					return is_connected ? mSocket.GetHashCode () : 0;
+					return socket.GetHashCode ();
 				}
 			}
 
-			public ClientSocket ()
+			public ClientSocket (WebSocket socket)
 			{
-				on_connect += (ret) => {
-					if (ret == false) {
-						mExcuter = null;
-						return;
-					}
-
-				mExcuter = Observable.FromCoroutine<PROTOCOL> (
-					(observer, cancellation_token) => RecvImpl (mSocket, observer, cancellation_token))
-						.Subscribe (
-					
-					protocol => {
-								if(mLastRecv.serial >= protocol.serial)
-							{
-								error = string.Format ("[{0}] protocol is invaild. socket is closed.", 
-									System.Reflection.MethodBase.GetCurrentMethod ().Name);
-								this.Close();
-							}
-						
-						on_recv (protocol);
-						mLastRecv = protocol;
-					},
-								
-					exception => {
-						error = exception.Message;
-						on_close ();
-					});
-				};
-
-				on_close += () => {
-					if (mSocket != null)
-						mSocket.Close ();
-
-					mExcuter = null;
-					mSocket = null;
-				};
+				this.socket = socket;
 			}
 
-			public bool Connect (string url)
+			public static IObservable<ClientSocket> Connect (string url)
 			{
-				if (!is_disconnected) {
-					error = string.Format ("[{0}] socket is already connecting.", System.Reflection.MethodBase.GetCurrentMethod ().Name);
+				return Observable.FromCoroutine<ClientSocket> (observe => ConnectImpl (url, observe))
+                    .Do (socket => {
+					socket.packethole = new UniRx.Subject<PROTOCOL>();
+					socket.connection = 
+							Observable.FromCoroutine<PROTOCOL> (
+						(observer) => RecvImpl (socket, observer))
+                            .Subscribe (
+						protocol => {
+							socket.packethole.OnNext (protocol);
+							socket.mLastRecv = protocol;
+						},
+						exception => {
+							socket.packethole.OnError (exception);
+							socket.CloseImpl ();
+						});
+				});
+			}
+
+			public bool Send (long command, Newtonsoft.Json.Linq.JToken payload)
+			{
+				if (!is_conn) {
 					return false;
 				}
-
-				//Observable.FromCoroutine<byte[]>(mSocket.Connect()).Subscribe(
-				mExcuter = Observable.FromCoroutine<WebSocket> (
-					(overserve, cancellation_token) =>
-					ConnectImpl (url, overserve, cancellation_token))
-					.Subscribe (
-					socket => {
-						mSocket = socket;
-						on_connect (true);
-					},
-					expcetion => {
-						error = expcetion.Message;
-						on_connect (false);
-					}
-				);
-
-				return true;
-			}
-
-			public bool Send (long command, byte[] payload)
-			{
-				if (!is_connected) {
-					error = string.Format ("[{0}] socket isn't connecting.", System.Reflection.MethodBase.GetCurrentMethod ().Name);
-					return false;
-				}
-				
-				var packet = new PROTOCOL();
+				var packet = new PROTOCOL ();
 				packet.ver = PROTOCOL.VERSION;
 				packet.serial = mLastSend.serial + 1;
 				packet.utc = UnixDateTime.ToUnixTimeMilliseconds (System.DateTime.UtcNow);
 				packet.command = command;
 				packet.payload = payload;
-					
-				var pretty_json = JsonUtility.ToJson (packet);
-				mSocket.SendString (pretty_json);
+
+				var json = Newtonsoft.Json.JsonConvert.SerializeObject (packet);
+				socket.SendString (json);
 				mLastSend = packet;
 				return true;
 			}
 
 			public void Close ()
 			{
-				if (mExcuter != null) {
-					mExcuter.Dispose ();
-					on_close ();
-				}
+				packethole.OnCompleted ();
+				socket.Close ();
+				CloseImpl ();
 			}
 
-			static IEnumerator RecvImpl (WebSocket websocket, IObserver<PROTOCOL> observer, CancellationToken cancellation_token)
+			public void CloseImpl ()
 			{
-				Debug.Assert (websocket != null);
+				connection.Dispose ();
+				connection = null;
 
-				while (!cancellation_token.IsCancellationRequested) {
-					var recved_str = websocket.RecvString ();
-					if (!string.IsNullOrEmpty (websocket.error)) {
-						observer.OnError (new System.Exception (websocket.error));
+			}
+
+			public IObservable<PROTOCOL> Recv()
+			{
+				return packethole.AsObservable ();
+			}
+			static IEnumerator RecvImpl (ClientSocket client, IObserver<PROTOCOL> observer)
+			{
+				while (true) {
+					var recved = client.socket.RecvString ();
+					if (!string.IsNullOrEmpty (client.socket.error)) {
+						observer.OnError (new System.Exception (client.socket.error));
 						break;
 					}
 
-					if (!string.IsNullOrEmpty (recved_str)) {
-						var recved = JsonUtility.FromJson<PROTOCOL> (recved_str);
-						observer.OnNext (recved);
+					if (!string.IsNullOrEmpty (recved)) {
+						var protocol = Newtonsoft.Json.JsonConvert.DeserializeObject<PROTOCOL> (recved);
+						observer.OnNext (protocol);
 					}
 					yield return null;
 				}
 			}
 
-			static IEnumerator ConnectImpl (string url, IObserver<WebSocket> observer, CancellationToken cancellationToken)
+			static IEnumerator ConnectImpl (string url, IObserver<ClientSocket> observer)
 			{
 				System.Uri url_info = new System.Uri (url);
 				var socket = new WebSocket (url_info);
-				yield return socket.Connect ().ToYieldInstruction (false, cancellationToken);
-
-				if (cancellationToken.IsCancellationRequested) {
-					if (string.IsNullOrEmpty (socket.error))
-						socket.Close ();
-					yield break;
-				}
+				yield return socket.Connect ().ToYieldInstruction (false);
 
 				if (!string.IsNullOrEmpty (socket.error)) {
 					observer.OnError (new System.Exception (socket.error));
 					yield break;
 				}
 
-				observer.OnNext (socket);
+				observer.OnNext (new ClientSocket (socket));
 				observer.OnCompleted ();
 			}
 		}

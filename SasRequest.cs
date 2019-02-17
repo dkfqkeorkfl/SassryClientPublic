@@ -230,12 +230,6 @@ namespace Sas {
                 return true;
             }
 
-            public Sas.Net.ClientSocket MakeSocket (string url) {
-                var client = new Sas.Net.ClientSocket ();
-                client.Connect (url);
-                return client;
-            }
-
             public Inst Get (string url) {
                 Debug.Log (string.Format ("[{0}] GET : {1}", System.Reflection.MethodBase.GetCurrentMethod ().Name, url.ToString ()));
                 var req = (System.Net.WebRequest.Create (url)) as HttpWebRequest;
