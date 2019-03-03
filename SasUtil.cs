@@ -6,6 +6,8 @@ namespace Sas
 {
 	static class SasUtil
 	{
+		
+
 		public static long nowUtc { get { return UnixDateTime.ToUnixTimeMilliseconds (System.DateTime.UtcNow); } }
 
 		public static double Evaluate (string expression)

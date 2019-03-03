@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Sas
 {
-	public enum ERRNO : uint
+	public enum ERRNO
 	{
 		UNKNOWN,
 		MESSAGE,
@@ -34,6 +34,7 @@ namespace Sas
 		ACCESS_FUll,
 		INVALID_TARGET,
 
+		DISSCONNECT_CONNECTION,
 		LOCAL_HOST_NOT_FIND_EXIST,
 		LOCAL_HOST_SIGNATURE_ERR,
 
@@ -43,55 +44,23 @@ namespace Sas
 	[System.Serializable]
 	public class Error
 	{
-		public int errno { get; set; }
+		public long code { get; set; }
 		public string what { get; set; }
-
-		public ERRNO serial { get { return ErrnoToEnum (errno); } }
-
-		static Dictionary<int, ERRNO> sErrnoTable;
-
-		public static ERRNO ErrnoToEnum (int id)
-		{
-			if (sErrnoTable == null) {
-
-				sErrnoTable = new Dictionary<int, ERRNO> ();
-				foreach (var val in Enum.GetValues (typeof(ERRNO))) {
-					var value = (uint)val;
-					var name = Enum.GetName (typeof(ERRNO), value);
-					sErrnoTable.Add ((int)SecureHelper.Crc32 (name), (ERRNO)value);
-				}
-			}
-
-			ERRNO ret;
-			if (!sErrnoTable.TryGetValue (id, out ret)) {
-				Debug.LogWarning (string.Format ("cannot find type of errno{0}", id));
-				return ERRNO.UNKNOWN;
-			}
-
-			return ret;
-
-		}
-
 	}
 
 	public class Exception : System.Exception
 	{
-		ERRNO mErrno = ERRNO.UNKNOWN;
+		public long code { get; private set; }
 
 		public Exception(System.Exception inner) : base("", inner) {}
-		public Exception (ERRNO errno, string what = "") : base (what)
+		public Exception (long code, string what = "") : base (what)
 		{
-			this.errno = errno;
+			this.code = code;
 		}
 
 		public Exception (Error error) : base (error.what == null ? "" : error.what)
 		{
-			this.errno = Error.ErrnoToEnum (error.errno);
-		}
-			
-		public ERRNO errno { 
-			get { return this.InnerException != null ? this.InnerException.GetErrno () : mErrno; } 
-			private set { mErrno = value; } 
+			this.code = error.code;
 		}
 
 		public override string Message {
@@ -103,17 +72,23 @@ namespace Sas
 
 	public static class ExceptionExt
 	{
-		public static ERRNO GetErrno (this System.Exception e)
+		static Emaaper<ERRNO> mapper = new Emaaper<ERRNO>();
+		public static ERRNO ToErrnoOfSas(this System.Exception e)
 		{
 			var exception = e as Sas.Exception;
-			return exception != null ? exception.errno : Sas.ERRNO.MESSAGE;
+			return exception != null ? mapper.ToEnum(exception.code) : Sas.ERRNO.MESSAGE;
 		}
 
-		public static string GetErrstr (this System.Exception e)
+		public static string ToErrstrOfSas (this System.Exception e)
 		{
 			var exception = e as Sas.Exception;
-			return Enum.GetName (typeof(Sas.ERRNO), exception != null ? exception.errno : Sas.ERRNO.MESSAGE);
+			return Enum.GetName (typeof(Sas.ERRNO), exception != null ? exception.ToErrnoOfSas() : Sas.ERRNO.MESSAGE);
 
+		}
+
+		public static long ToErrCodeOfSas(this ERRNO e)
+		{
+			return mapper.ToHash (e);
 		}
 	}
 }

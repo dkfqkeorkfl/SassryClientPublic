@@ -127,7 +127,7 @@ namespace Sas {
                 return context.Get ("/Account/Authentication")
                     .Select (result => {
                         authentication = MakeAuthentication (result.protocol.payload["/Account/Authentication"]);
-                        return result.protocol.ecommand;
+						return result.protocol.ToCmdOfSas();
                     });
             }
 
@@ -187,7 +187,7 @@ namespace Sas {
 						JsonDB db = new JsonDB("account");
 						var obj = db.Get(argc.extension);
 						if(obj.Type == JTokenType.Null)
-							throw new Sas.Exception (Sas.ERRNO.LOCAL_HOST_NOT_FIND_EXIST);;
+							throw new Sas.Exception (Sas.ERRNO.LOCAL_HOST_NOT_FIND_EXIST.ToErrCodeOfSas());
 
 						AutoLoginFile body = obj.ToObject<AutoLoginFile>();;
                         var hashed = body.signature;
@@ -197,7 +197,7 @@ namespace Sas {
                         var pbkdf = new Rfc2898DeriveBytes (json, SecureHelper.APP_SALT.GetByte (Convert.FromBase64String), 3483);
                         var signature = Convert.ToBase64String (pbkdf.GetBytes (256));
                         if (!string.Equals (signature, hashed))
-                            throw new Sas.Exception (Sas.ERRNO.LOCAL_HOST_SIGNATURE_ERR);
+							throw new Sas.Exception (Sas.ERRNO.LOCAL_HOST_SIGNATURE_ERR.ToErrCodeOfSas());
 
                         var param = new AccountLoginReqParam ();
                         param.sns = SNS.AUTO.GetHashCode ();

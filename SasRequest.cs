@@ -5,6 +5,7 @@ using System.Net;
 using Newtonsoft.Json.Linq;
 using UniRx;
 using UnityEngine;
+using Sas;
 
 namespace Sas {
     namespace Net {
@@ -110,7 +111,7 @@ namespace Sas {
                     return UniRx.Observable.Range (0, 1)
                         .Select (_ => {
                             if (is_connecting)
-                                throw new Sas.Exception (Sas.ERRNO.REQUET_ALREADY_CONNECTING);
+								throw new Sas.Exception (Sas.ERRNO.REQUET_ALREADY_CONNECTING.ToErrCodeOfSas());
                             return _;
                         })
                         .SelectMany (_ => {
@@ -158,11 +159,11 @@ namespace Sas {
                                                 ret.protocol.serial = (long) root["serial"];
                                                 ret.protocol.command = (long) root["command"];
                                                 ret.protocol.payload = root["payload"];
-                                                if (ret.protocol.ecommand == COMMAND.ERR) {
+												if (ret.protocol.ToCmdOfSas() == COMMAND.ERR) {
                                                     var jError = ret.protocol.GetPayload (token => {
                                                         var obj = (JObject) token;
                                                         var err = new Error {
-                                                            errno = (int) obj["errno"],
+                                                            code = (int) obj["errno"],
                                                             what = (string) obj["what"],
                                                         };
 

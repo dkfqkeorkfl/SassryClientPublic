@@ -52,10 +52,10 @@ namespace Sas
 				});
 			}
 
-			public bool Send (long command, Newtonsoft.Json.Linq.JToken payload)
+			public IObservable<int> Send (long command, Newtonsoft.Json.Linq.JToken payload)
 			{
 				if (!is_conn) {
-					return false;
+					throw new Exception(ERRNO.DISSCONNECT_CONNECTION.ToErrCodeOfSas());
 				}
 				var packet = new PROTOCOL ();
 				packet.ver = PROTOCOL.VERSION;
@@ -67,7 +67,7 @@ namespace Sas
 				var json = Newtonsoft.Json.JsonConvert.SerializeObject (packet);
 				socket.SendString (json);
 				mLastSend = packet;
-				return true;
+				return Observable.Range (0, 1).Select (_ => json.Length);
 			}
 
 			public void Close ()
@@ -77,7 +77,7 @@ namespace Sas
 				CloseImpl ();
 			}
 
-			public void CloseImpl ()
+			void CloseImpl ()
 			{
 				connection.Dispose ();
 				connection = null;
