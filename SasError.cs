@@ -52,7 +52,10 @@ namespace Sas
 	{
 		public long code { get; private set; }
 
-		public Exception(System.Exception inner) : base("", inner) {}
+		public Exception(System.Exception inner) : base("", inner) {
+			this.code = inner.ToErrnoOfSas ().ToErrCode ();
+		}
+
 		public Exception (long code, string what = "") : base (what)
 		{
 			this.code = code;
@@ -86,7 +89,7 @@ namespace Sas
 
 		}
 
-		public static long ToErrCodeOfSas(this ERRNO e)
+		public static long ToErrCode(this ERRNO e)
 		{
 			return mapper.ToHash (e);
 		}

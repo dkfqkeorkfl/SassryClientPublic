@@ -55,7 +55,7 @@ namespace Sas
 			public IObservable<int> Send (long command, Newtonsoft.Json.Linq.JToken payload)
 			{
 				if (!is_conn) {
-					throw new Exception(ERRNO.DISSCONNECT_CONNECTION.ToErrCodeOfSas());
+					throw new Exception(ERRNO.DISSCONNECT_CONNECTION.ToErrCode());
 				}
 				var packet = new PROTOCOL ();
 				packet.ver = PROTOCOL.VERSION;

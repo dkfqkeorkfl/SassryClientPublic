@@ -111,7 +111,7 @@ namespace Sas {
                     return UniRx.Observable.Range (0, 1)
                         .Select (_ => {
                             if (is_connecting)
-								throw new Sas.Exception (Sas.ERRNO.REQUET_ALREADY_CONNECTING.ToErrCodeOfSas());
+								throw new Sas.Exception (Sas.ERRNO.REQUET_ALREADY_CONNECTING.ToErrCode());
                             return _;
                         })
                         .SelectMany (_ => {
