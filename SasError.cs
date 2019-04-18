@@ -75,7 +75,7 @@ namespace Sas
 
 	public static class ExceptionExt
 	{
-		static Emaaper<ERRNO> mapper = new Emaaper<ERRNO>();
+		static Emapper<ERRNO> mapper = new Emapper<ERRNO>();
 		public static ERRNO ToErrnoOfSas(this System.Exception e)
 		{
 			var exception = e as Sas.Exception;

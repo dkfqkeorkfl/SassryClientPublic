@@ -4,6 +4,19 @@ using System.Collections.Generic;
 
 namespace Sas
 {
+	public class DisposeAction : System.IDisposable
+	{
+		System.Action action;
+		public DisposeAction(System.Action action)
+		{
+			this.action = action;
+		}
+		public void Dispose ()
+		{
+			this.action ();
+		}
+	}
+
 	static class SasUtil
 	{
 		
