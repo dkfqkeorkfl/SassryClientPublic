@@ -22,7 +22,6 @@ namespace Sas
 			}
 
 			PROTOCOL mLastSend = new PROTOCOL (), mLastRecv = new PROTOCOL ();
-
 			WebSocketSharp.WebSocket socket { get; set; }
 			UniRx.Subject<PROTOCOL> subscribe { get; set; }
 			public SharedData shared_data { get; private set; }
@@ -53,7 +52,7 @@ namespace Sas
 				return subscribe.AsObservable ();
 			}
 
-			UniRx.IObservable<bool> Send(long command, Newtonsoft.Json.Linq.JToken payload)
+			public UniRx.IObservable<bool> Send(long command, Newtonsoft.Json.Linq.JToken payload)
 			{
 				return UniRx.Observable.Create<bool> (observer => {
 					var packet = new PROTOCOL ();
@@ -76,32 +75,41 @@ namespace Sas
 
 		public class WebsocketMgr
 		{
-			public struct Config
+			public class Config
 			{
 				public System.Uri url;
 				public string[] protocols;
-				public Dictionary<string, string> coockie;
+				public Dictionary<string, string> coockie = new Dictionary<string, string>();
 			}
 
 			public Websocket.SharedData shared_data { get; private set; }
-			public int size { get { shared_data.connected.Count; }}
+			public int size { get { return shared_data.connected.Count; }}
 
 			public WebsocketMgr()
 			{
 				this.shared_data = new Websocket.SharedData ();
 			}
 
+
 			public UniRx.IObservable<Websocket> Connection(Config config)
 			{
 				return UniRx.Observable.Create<Websocket> (observer => {
 					var impl = new WebSocketSharp.WebSocket(config.url.ToString(), config.protocols);
+					System.EventHandler<WebSocketSharp.ErrorEventArgs> onError = (obj, e)=> {
+						observer.OnError(new System.Exception(e.Message));
+					};
+
+					impl.OnError += onError;
+
 					foreach(var pr in config.coockie)
 						impl.SetCookie(new WebSocketSharp.Net.Cookie(pr.Key, pr.Value));
-
 					var socket = new Websocket(impl, shared_data);
 					impl.OnOpen += (sender, e) => {
+						impl.OnError -= onError;
 						this.shared_data.connected.Add(socket.GetHashCode(), socket);
+
 						observer.OnNext(socket);
+						observer.OnCompleted();
 					};
 					impl.ConnectAsync();
 
