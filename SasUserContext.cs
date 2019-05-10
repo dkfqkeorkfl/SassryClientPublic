@@ -15,6 +15,8 @@ namespace Sas
 
 			public Net.HTTPSRequest requester { get; private set; }
 
+			public Net.ProtocolHandler handler { get; private set; }
+
 			public AccountLoginResult login_result { get; set; }
 
 			public AccountAccessEquipResult accept_equip { get { 
@@ -30,8 +32,6 @@ namespace Sas
 			public string public_key { get { return login_result.public_key; } }
 
 			public long token_time { get { return login_result.token_time; } }
-
-			public event Action<JObject> paylod_handler;
 
 			public string token {
 				get { 
@@ -56,6 +56,7 @@ namespace Sas
 			{
 				this.requester = other;
 				this.server = server;
+				this.handler = new Net.ProtocolHandler();
 			}
 
 			public UniRx.IObservable<Net.HTTPResult> Get (string page)
@@ -66,7 +67,7 @@ namespace Sas
 					inst.mReq.Headers.Add ("sas-accesstoken", token);
 					
 				return inst.Invoke ().Do (ret => {
-					paylod_handler((JObject)ret.protocol.payload);
+					handler.Process(ret.protocol.payload as JObject);
 				});
 			}
 
@@ -79,7 +80,7 @@ namespace Sas
 
 				return inst.Invoke (payload)
 					.Do (ret => {
-						paylod_handler((JObject)ret.protocol.payload);
+						handler.Process(ret.protocol.payload as JObject);
 					});
 			}
 		}
