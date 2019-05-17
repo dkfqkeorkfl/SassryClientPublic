@@ -11,16 +11,15 @@ namespace Sas
 	{
 		public class Websocket
 		{
-			Dictionary<string, Newtonsoft.Json.Linq.JToken> handlers;
-
 			public PROTOCOL last_send { get; private set; }
 			public PROTOCOL last_recv { get; private set; }
+			public ProtocolHandler handler { get; private set; }
 			Util.Websocket socket { get; set; }
 
-			public Websocket(Util.Websocket socket, Dictionary<string, Newtonsoft.Json.Linq.JToken> handler)
+			public Websocket(Util.Websocket socket, ProtocolHandler handler)
 			{
 				this.socket = socket;
-				this.handlers = handler;
+				this.handler = handler;
 
 				this.last_send = new PROTOCOL ();
 				this.last_recv = new PROTOCOL ();
@@ -32,12 +31,13 @@ namespace Sas
 					.Select(bytes=> {
 						var text = System.Text.Encoding.UTF8.GetString (bytes);
 						var protocol = Newtonsoft.Json.JsonConvert.DeserializeObject<PROTOCOL> (text);
+						handler.Process(protocol.payload as Newtonsoft.Json.Linq.JObject);
 						last_recv = protocol;
 						return protocol;
 					});
 			}
 
-			public UniRx.IObservable<bool> Send(long command, Newtonsoft.Json.Linq.JToken payload)
+			public UniRx.IObservable<bool> Send(string command, Newtonsoft.Json.Linq.JToken payload)
 			{
 				var packet = new PROTOCOL ();
 				packet.ver = PROTOCOL.VERSION;

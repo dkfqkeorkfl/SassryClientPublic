@@ -126,7 +126,7 @@ namespace Sas {
                                     packet.ver = PROTOCOL.VERSION;
                                     packet.serial = mShared.send_cnt + 1;
                                     packet.utc = UnixDateTime.ToUnixTimeMilliseconds (System.DateTime.UtcNow);
-									packet.command = COMMAND.POST.ToCmdCode ();
+									packet.command = "post";
                                     packet.payload = payload;
                                     // new JArray(payload.ToList());
                                     var pretty_json = Newtonsoft.Json.JsonConvert.SerializeObject (packet);
@@ -157,10 +157,10 @@ namespace Sas {
                                                 ret.protocol.ver = (long) root["ver"];
                                                 ret.protocol.utc = (long) root["utc"];
                                                 ret.protocol.serial = (long) root["serial"];
-                                                ret.protocol.command = (long) root["command"];
+												ret.protocol.command = (string)root["command"];
                                                 ret.protocol.payload = root["payload"];
 
-												if (ret.protocol.ToCmdOfSas() == COMMAND.ERR) {
+												if (ret.protocol.command == "error") {
                                                     var jError = ret.protocol.GetPayload (token => {
                                                         var obj = (JObject) token;
                                                         var err = new Error {

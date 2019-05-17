@@ -123,10 +123,11 @@ namespace Sas
 
 			~Account ()
 			{
-				context.handler.Del(new string[]{
+				context.handler.Del (new string[] {
 					"/Account/Login",
 					"/Account/Login",
-					"/Account/AccessDel"});
+					"/Account/AccessDel"
+				});
 			}
 
 			static byte[] MakeAuthentication (JToken token)
@@ -151,13 +152,13 @@ namespace Sas
 				}
 			}
 
-			public UniRx.IObservable<Sas.Net.COMMAND> Authentication ()
+			public UniRx.IObservable<string> Authentication ()
 			{
 				// 추후 런쳐 사
 				return context.Get ("/Account/Authentication")
                     .Select (result => {
 					authentication = MakeAuthentication (result.protocol.payload ["/Account/Authentication"]);
-					return result.protocol.ToCmdOfSas ();
+					return result.protocol.command;
 				});
 			}
 
